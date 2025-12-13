@@ -328,3 +328,21 @@ internal partial class CommonElem
 
     [ProtoMember(3)] public uint BusinessType { get; set; }
 }
+
+[ProtoPackable]
+internal partial class NotOnlineImagePbReserve
+{
+    [ProtoMember(1)] public int SubType { get; set; }
+
+    [ProtoMember(3)] public int Field3 { get; set; }
+
+    [ProtoMember(4)] public int Field4 { get; set; }
+
+    [ProtoMember(8)] public string Summary { get; set; } = string.Empty;
+
+    [ProtoMember(10)] public int Field10 { get; set; }
+
+    [ProtoMember(30)] public string Url { get; set; } = string.Empty;
+
+    [ProtoMember(31)] public string Md5Str { get; set; } = string.Empty;
+}

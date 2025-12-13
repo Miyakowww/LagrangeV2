@@ -64,11 +64,19 @@ public class ImageEntity : RichMediaEntityBase
 
     public override async Task Postprocess(BotContext context, BotMessage message)
     {
-        NTV2RichMediaDownloadEventResp result = message.IsGroup()
-            ? await context.EventContext.SendEvent<ImageGroupDownloadEventResp>(new ImageGroupDownloadEventReq(message, this))
-            : await context.EventContext.SendEvent<ImageDownloadEventResp>(new ImageDownloadEventReq(message, this));
-        
-        FileUrl = result.Url;
+        if (!string.IsNullOrEmpty(FileUrl))
+        {
+            return;
+        }
+
+        if (MsgInfo != null)
+        {
+            NTV2RichMediaDownloadEventResp result = message.IsGroup()
+                ? await context.EventContext.SendEvent<ImageGroupDownloadEventResp>(new ImageGroupDownloadEventReq(message, this))
+                : await context.EventContext.SendEvent<ImageDownloadEventResp>(new ImageDownloadEventReq(message, this));
+            
+            FileUrl = result.Url;
+        }
     }
 
     public override string ToPreviewString() => Summary;
@@ -127,6 +135,97 @@ public class ImageEntity : RichMediaEntityBase
             };
         }
         
+        if (target.NotOnlineImage is { } image)
+        {
+            const string BaseUrl = "https://multimedia.nt.qq.com.cn";
+            const string LegacyBaseUrl = "http://gchat.qpic.cn";
+            
+            string imageUrl;
+            if (!string.IsNullOrEmpty(image.OrigUrl))
+            {
+                if (image.OrigUrl.Contains("&fileid="))
+                {
+                    imageUrl = $"{BaseUrl}{image.OrigUrl}";
+                }
+                else
+                {
+                    imageUrl = $"{LegacyBaseUrl}{image.OrigUrl}";
+                }
+            }
+            else
+            {
+                imageUrl = string.Empty;
+            }
+            
+            string summary = "[图片]";
+            int subType = 0;
+            
+            if (image.PbReserve != null && image.PbReserve.Length > 0)
+            {
+                try
+                {
+                    var pbReserve = ProtoHelper.Deserialize<NotOnlineImagePbReserve>(image.PbReserve);
+                    summary = string.IsNullOrEmpty(pbReserve.Summary) ? "[图片]" : pbReserve.Summary;
+                    subType = pbReserve.SubType;
+                }
+                catch { }
+            }
+            
+            return new ImageEntity
+            {
+                ImageSize = new Vector2(image.PicWidth, image.PicHeight),
+                FileSize = image.FileLen,
+                FileMd5 = Convert.ToHexString(image.PicMd5 ?? []),
+                FileUrl = imageUrl,
+                Summary = summary,
+                SubType = subType,
+            };
+        }
+        
+        if (target.CustomFace is { } face)
+        {
+            const string BaseUrl = "https://multimedia.nt.qq.com.cn";
+            const string LegacyBaseUrl = "http://gchat.qpic.cn";
+            
+            string imageUrl;
+            if (!string.IsNullOrEmpty(face.OrigUrl))
+            {
+                if (face.OrigUrl.Contains("&fileid="))
+                {
+                    imageUrl = $"{BaseUrl}{face.OrigUrl}";
+                }
+                else
+                {
+                    imageUrl = $"{LegacyBaseUrl}{face.OrigUrl}";
+                }
+            }
+            else
+            {
+                imageUrl = string.Empty;
+            }
+            
+            return new ImageEntity
+            {
+                ImageSize = new Vector2(face.Width, face.Height),
+                FileSize = face.Size,
+                FileMd5 = Convert.ToHexString(face.Md5 ?? []),
+                FileUrl = imageUrl,
+                Summary = face.PbReserve?.Summary ?? "[图片]",
+                SubType = face.PbReserve?.SubType ?? GetImageTypeFromFaceOldData(face),
+            };
+        }
+        
         return null;
+    }
+    
+    private static int GetImageTypeFromFaceOldData(CustomFace face)
+    {
+        if (face.OldData is not { Length: >= 5 }) return 0;
+
+        return face.OldData[4].ToString("X2") switch
+        {
+            "36" => 1,
+            _ => 0,
+        };
     }
 }
